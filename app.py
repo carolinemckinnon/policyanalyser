@@ -4,31 +4,52 @@ from similarity import cluster_segments, label_clusters_by_tfidf
 from collections import Counter
 import pandas as pd
 import numpy as np
-from docx import Document
-from docx.opc.exceptions import PackageNotFoundError
 import os
 import re
 import hashlib
+try:
+    from docx import Document
+    from docx.opc.exceptions import PackageNotFoundError
+except ImportError:
+    Document = None
+    PackageNotFoundError = Exception
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from io import BytesIO
 from zipfile import ZipFile, BadZipFile
 from pathlib import Path
 LEGISLATION_SAMPLE_FILE = Path("legislation_texts/youth_justice_act_2024_sections.xlsx")
-def load_document_from_register(entry: pd.Series, docs_dir: Path):
-    doc_path = docs_dir / entry["relative_path"]
-    if not doc_path.exists():
-        raise FileNotFoundError(f"Document not found at {doc_path}")
-    document = Document(str(doc_path))
-    paragraphs = [p for p in document.paragraphs if p.text.strip()]
-    raw_text = "\n".join(p.text.strip() for p in paragraphs)
+def load_document_from_register(entry: pd.Series, docs_dir: Optional[Path]) -> Dict:
+    """Load policy text either from a DOCX file or fall back to the register body text."""
+    metadata = entry.to_dict()
+    display_name = entry.get("display_title") or entry.get("title") or entry.get("file_name")
+    body_text = str(entry.get("body_text") or "").strip()
+    raw_text = body_text
+    paragraphs: List = []
+    source = metadata.get("relative_path", "")
+
+    if docs_dir is not None and metadata.get("relative_path"):
+        doc_path = (docs_dir / metadata["relative_path"]).expanduser().resolve()
+        if Document is not None and doc_path.exists():
+            try:
+                document = Document(str(doc_path))
+            except Exception:  # pragma: no cover - fallback to register text
+                document = None
+            if document is not None:
+                paragraphs = [p for p in document.paragraphs if p.text.strip()]
+                raw_text = "\n".join(p.text.strip() for p in paragraphs)
+                source = str(doc_path)
+
+    if not raw_text:
+        raw_text = body_text
+
     return {
-        "name": entry.get("display_title") or entry.get("file_name"),
+        "name": display_name,
         "raw_text": raw_text,
         "paragraphs": paragraphs,
-        "source": str(doc_path),
+        "source": source,
         "register_id": int(entry["register_id"]),
-        "metadata": entry.to_dict(),
+        "metadata": metadata,
     }
 
 
