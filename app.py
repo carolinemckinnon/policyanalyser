@@ -1693,7 +1693,7 @@ def render_document_similarity_tab(
                 }
             )
             display_df["Match strength"] = display_df["Match strength"].apply(lambda val: round(val, 3))
-            st.dataframe(display_df, hide_index=True, width="stretch")
+            st.dataframe(display_df, hide_index=True)
 
             st.markdown("#### Deep dive")
             st.caption("Pick a pair to see why it scored highly.")
