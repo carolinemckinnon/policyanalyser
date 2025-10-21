@@ -1,7 +1,6 @@
 import streamlit as st
 from preprocessing import clean_text, remove_high_frequency_terms, basic_sentence_tokenize
 from similarity import cluster_segments, label_clusters_by_tfidf
-from plotting import create_similarity_network_figure
 from collections import Counter
 import pandas as pd
 import numpy as np
