@@ -84,6 +84,8 @@ def load_register_data(register_path: str) -> pd.DataFrame:
     if "file_name" in df.columns:
         df["file_name"] = df["file_name"].fillna("")
     df["display_title"] = df["title"].where(df["title"].str.strip() != "", df["file_name"])
+    if "last_revised" in df.columns:
+        df["last_revised"] = pd.to_datetime(df["last_revised"], errors="coerce", dayfirst=True)
     return df
 
 
