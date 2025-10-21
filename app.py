@@ -1659,7 +1659,6 @@ def render_document_similarity_tab(
                     "Sub-topics": subtopic_display,
                     "Subject alignment": alignment_label,
                     "Oldest revision": oldest_display,
-                    "Staleness (days)": staleness_days,
                     "Alerts": ", ".join(alerts) if alerts else "—",
                     "register_id_a": int(rid_a),
                     "register_id_b": int(rid_b),
@@ -1688,16 +1687,13 @@ def render_document_similarity_tab(
                     "Shared signals": "Shared signals",
                     "Owners involved": "Owners",
                     "Subjects": "Subjects",
-                    "Sub-topics": "Sub-topics",
                     "Subject alignment": "Subject alignment",
                     "Oldest revision": "Oldest update",
-                    "Staleness (days)": "Days since update",
-                    "Alerts": "Alerts",
+                                        "Alerts": "Alerts",
                 }
             )
             display_df["Match strength"] = display_df["Match strength"].apply(lambda val: round(val, 3))
             display_df["Days since update"] = display_df["Days since update"].apply(
-                lambda val: int(val) if pd.notna(val) else pd.NA
             )
             st.dataframe(display_df, hide_index=True, width="stretch")
 
