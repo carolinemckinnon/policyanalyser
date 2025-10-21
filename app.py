@@ -1697,7 +1697,7 @@ def render_document_similarity_tab(
             )
             display_df["Match strength"] = display_df["Match strength"].apply(lambda val: round(val, 3))
             display_df["Days since update"] = display_df["Days since update"].apply(
-                lambda val: int(val) if pd.notna(val) else "—"
+                lambda val: int(val) if pd.notna(val) else pd.NA
             )
             st.dataframe(display_df, hide_index=True, width="stretch")
 
