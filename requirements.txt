@@ -1,0 +1,16 @@
+streamlit>=1.50
+sentence-transformers>=3.2
+scikit-learn>=1.5
+plotly>=6.0
+networkx>=3.2
+numpy>=2.0
+pandas>=2.2
+pyarrow>=15.0
+python-docx>=1.0
+Pillow>=10.0
+joblib>=1.4
+matplotlib>=3.8
+torch>=2.4,<2.6
+torchvision>=0.19,<0.21
+torchaudio>=2.4,<2.6
+streamlit-plotly-events>=0.0.6

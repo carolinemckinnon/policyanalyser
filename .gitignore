@@ -1,0 +1,50 @@
+# Bytecode / caches
+__pycache__/
+*.pyc
+
+# Local virtual environments
+*.venv
+.venv/
+venv/
+
+# Large source directories not needed for MVP
+VPM project/
+pycdc/
+Saved_runs/
+
+# Original semantic cache (replaced by data bundle)
+semantic_space/
+
+# Raw Office/source docs (MVP ships only curated data/)
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Build/output folders
+build/
+dist/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+.venv*/
+*.venv*/
+
+# Local virtualenv folders
+.venv*/
+*.venv/
+
+# Legacy app snapshots and scratch notes
+app_legacy.py
+app_old.py
+app_recovered.py
+scratch_file.txt
+
+# Local utility scripts not needed for deployment
+rebuild_chunks.py
