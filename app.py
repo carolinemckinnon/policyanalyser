@@ -2571,7 +2571,6 @@ with legislation_tab:
     load_sample = st.button(
         "Load sample Act",
         key="load_sample_legislation",
-        disabled=not sample_available,
     )
 
     if load_uploaded:
@@ -2595,25 +2594,28 @@ with legislation_tab:
         else:
             st.warning("The selected Act could not be found in the cache.")
 
-    if load_sample and sample_available:
-        with st.spinner("Loading Youth Justice Act sample…"):
-            df, embeddings, groups = load_legislation_sections(str(LEGISLATION_SAMPLE_FILE))
-        if df is None or embeddings is None or groups is None:
-            st.error(f"Could not load sample data from {LEGISLATION_SAMPLE_FILE}.")
+    if load_sample:
+        if not sample_available:
+            st.error(f"Sample Act not found at {LEGISLATION_SAMPLE_FILE}.")
         else:
-            sample_data = {
-                "df": df,
-                "embeddings": embeddings,
-                "groups": groups,
-                "display_name": "Youth Justice Act 2024 (sample)",
-                "source_name": LEGISLATION_SAMPLE_FILE.name,
-                "cache_key": "sample_youth_justice_act_2024",
-                "section_count": len(df),
-                "aliases": build_legislation_aliases("Youth Justice Act 2024"),
-            }
-            st.session_state["legislation_cache"][sample_data["cache_key"]] = sample_data
-            st.session_state["legislation_state"] = sample_data
-            st.success("Youth Justice Act 2024 sample loaded.")
+            with st.spinner("Loading Youth Justice Act sample…"):
+                df, embeddings, groups = load_legislation_sections(str(LEGISLATION_SAMPLE_FILE))
+            if df is None or embeddings is None or groups is None:
+                st.error(f"Could not load sample data from {LEGISLATION_SAMPLE_FILE}.")
+            else:
+                sample_data = {
+                    "df": df,
+                    "embeddings": embeddings,
+                    "groups": groups,
+                    "display_name": "Youth Justice Act 2024 (sample)",
+                    "source_name": LEGISLATION_SAMPLE_FILE.name,
+                    "cache_key": "sample_youth_justice_act_2024",
+                    "section_count": len(df),
+                    "aliases": build_legislation_aliases("Youth Justice Act 2024"),
+                }
+                st.session_state["legislation_cache"][sample_data["cache_key"]] = sample_data
+                st.session_state["legislation_state"] = sample_data
+                st.success("Youth Justice Act 2024 sample loaded.")
 
     legislation_state = st.session_state.get("legislation_state")
 
