@@ -19,7 +19,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 from io import BytesIO
 from zipfile import ZipFile, BadZipFile
 from pathlib import Path
-LEGISLATION_SAMPLE_FILE = Path("legislation_texts/youth_justice_act_2024_sections.xlsx")
+LEGISLATION_SAMPLE_FILE = Path(__file__).resolve().parent / "legislation_texts" / "youth_justice_act_2024_sections.xlsx"
 def load_document_from_register(entry: pd.Series, docs_dir: Optional[Path]) -> Dict:
     """Load policy text either from a DOCX file or fall back to the register body text."""
     metadata = entry.to_dict()
