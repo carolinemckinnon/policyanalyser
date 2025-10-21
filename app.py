@@ -4,6 +4,7 @@ from similarity import cluster_segments, label_clusters_by_tfidf
 from collections import Counter
 import pandas as pd
 import numpy as np
+from typing import Any, Dict, List, Optional, Tuple, Set
 import os
 import re
 import hashlib
@@ -54,7 +55,6 @@ def load_document_from_register(entry: pd.Series, docs_dir: Optional[Path]) -> D
 
 
 
-from typing import Any, Dict, List, Optional, Tuple, Set
 import subprocess
 import sys
 from urllib.parse import quote, unquote
