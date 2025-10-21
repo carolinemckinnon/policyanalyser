@@ -2,7 +2,6 @@ import streamlit as st
 from preprocessing import clean_text, remove_high_frequency_terms, basic_sentence_tokenize
 from similarity import cluster_segments, label_clusters_by_tfidf
 from plotting import create_similarity_network_figure
-from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
 import pandas as pd
 import numpy as np
@@ -109,6 +108,15 @@ def compute_text_embeddings(texts_tuple):
         return np.empty((0, 0))
     model = load_sentence_transformer()
     return model.encode(list(texts_tuple), normalize_embeddings=True)
+
+
+def compute_cosine_similarity_matrix(vectors: np.ndarray) -> np.ndarray:
+    if vectors is None or getattr(vectors, "size", 0) == 0:
+        return np.empty((0, 0))
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1, norms)
+    normalized = vectors / norms
+    return normalized @ normalized.T
 @st.cache_data(show_spinner=False)
 def compute_register_embeddings(ids_tuple, texts_tuple):
     if not ids_tuple:
@@ -1253,7 +1261,7 @@ def render_document_similarity_tab(
                     if embeddings.size == 0:
                         st.error("Unable to compute embeddings for the selected documents.")
                     else:
-                        text_similarity_matrix = cosine_similarity(embeddings)
+                        text_similarity_matrix = compute_cosine_similarity_matrix(embeddings)
 
                         ontology_df = load_ontology_data(str(docs_dir)) if docs_dir else None
                         term_map: Dict[int, Dict[str, str]] = {}
