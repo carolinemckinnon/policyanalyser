@@ -19,6 +19,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 from io import BytesIO
 from zipfile import ZipFile, BadZipFile
 from pathlib import Path
+import sys
 LEGISLATION_SAMPLE_FILE = Path(__file__).resolve().parent / "legislation_texts" / "youth_justice_act_2024_sections.xlsx"
 def load_document_from_register(entry: pd.Series, docs_dir: Optional[Path]) -> Dict:
     """Load policy text either from a DOCX file or fall back to the register body text."""
@@ -56,7 +57,6 @@ def load_document_from_register(entry: pd.Series, docs_dir: Optional[Path]) -> D
 
 
 import subprocess
-import sys
 from urllib.parse import quote, unquote
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -70,6 +70,147 @@ DEFAULT_DOC_DIR_CANDIDATES = [
     Path("./data/docs"),
     Path("../data/docs"),
 ]
+AGENT_ROOT = BASE_DIR / "GPT Agent"
+if AGENT_ROOT.exists() and str(AGENT_ROOT) not in sys.path:
+    sys.path.append(str(AGENT_ROOT))
+try:  # pragma: no cover - optional dependency during local dev
+    from gpt_agent.agent import PolicyAgent
+    from gpt_agent.config import AgentConfig
+    from gpt_agent.constants import SAFETY_STATEMENT
+    AGENT_MODULES_AVAILABLE = True
+    AGENT_IMPORT_ERROR = ""
+except Exception as exc:  # pylint: disable=broad-except
+    PolicyAgent = None
+    AgentConfig = None
+    SAFETY_STATEMENT = "These policies appear to define or apply this term differently. Seek supervisor guidance."
+    AGENT_MODULES_AVAILABLE = False
+    AGENT_IMPORT_ERROR = f"Import error: {exc}"
+
+
+@st.cache_resource(show_spinner=False)
+def load_policy_agent_cached(top_k: int):
+    if not AGENT_MODULES_AVAILABLE or AgentConfig is None or PolicyAgent is None:
+        return None
+    config = AgentConfig()
+    config.top_k = top_k
+    if not config.vector_path.exists() or not config.metadata_path.exists():
+        return None
+    return PolicyAgent(config=config)
+
+
+def _format_source_links(citations: List[Dict[str, Any]]) -> List[str]:
+    lines: List[str] = []
+    seen: Set[str] = set()
+    for citation in citations:
+        title = citation.get("title") or citation.get("chunk_id") or "Source"
+        path = citation.get("path") or ""
+        chunk_id = citation.get("chunk_id")
+        label = title or chunk_id or "Source"
+        doc_id = citation.get("doc_id") or chunk_id or title
+        if doc_id in seen:
+            continue
+        seen.add(doc_id)
+        if path.startswith("http"):
+            lines.append(f"- [{label}]({path})")
+        elif path:
+            expanded_path = quote(str(Path(path).expanduser().resolve()))
+            lines.append(f"- [{label}](?open_file={expanded_path})")
+        else:
+            lines.append(f"- {label}")
+    return lines
+
+
+def render_policy_agent_mode(sidebar):
+    st.title("VicPol GPT Agent")
+    st.caption(
+        "Definition-aware retrieval that prioritises VPM definitions, rules, and exceptions before "
+        "calling the OpenAI model with the mandated reasoning template."
+    )
+    if not AGENT_MODULES_AVAILABLE:
+        st.error(
+            "The GPT Agent package is unavailable. Ensure the `GPT Agent/gpt_agent` folder exists and "
+            "dependencies are installed (`pip install -r requirements.txt`)."
+        )
+        if AGENT_IMPORT_ERROR:
+            st.code(AGENT_IMPORT_ERROR)
+        return
+
+    top_k = sidebar.slider(
+        "Policy context chunks",
+        min_value=6,
+        max_value=20,
+        value=10,
+        key="agent_top_k",
+        help="Number of high-similarity passages loaded from the VPM/legislation index.",
+    )
+    sidebar.caption("Optional live legislation fetch")
+    legislation_url = sidebar.text_input(
+        "Legislation URL",
+        placeholder="https://www.legislation.vic.gov.au/...",
+        key="agent_legislation_url",
+    ).strip()
+
+    agent = load_policy_agent_cached(top_k)
+    if agent is None:
+        st.warning(
+            "Vector store not found. Run `python \"GPT Agent/build_index.py\"` after preparing the VPM and "
+            "legislation folders, then refresh this app."
+        )
+        return
+
+    empty_text = "e.g. Are there special procedures for searching a child under the minimum age of criminal responsibility?"
+    history: List[Dict[str, Any]] = st.session_state.setdefault("agent_conversation", [])
+    if sidebar.button("Clear conversation"):
+        st.session_state["agent_conversation"] = []
+        st.rerun()
+
+    for turn in history:
+        with st.chat_message("user"):
+            st.markdown(turn["question"])
+        with st.chat_message("assistant"):
+            if turn.get("informative_mode"):
+                st.warning(
+                    "Informative mode only — conflicting or insufficient definitions were detected. "
+                    "Review the excerpts and seek supervisor guidance."
+                )
+            st.markdown(turn["answer"])
+            if turn.get("citations"):
+                links = _format_source_links(turn["citations"])
+                if links:
+                    st.markdown("**Sources**\n" + "\n".join(links))
+            if turn.get("raw_response"):
+                with st.expander("Raw model response", expanded=False):
+                    st.json(turn["raw_response"])
+
+    question = st.chat_input("Ask a question about the VPM")
+    if not question:
+        return
+
+    try:
+        with st.spinner("Retrieving definitions, rules, and exceptions..."):
+            conversation_payload = [
+                {"question": entry["question"], "answer": entry["answer"]}
+                for entry in history
+            ]
+            answer = agent.answer(
+                question.strip(),
+                legislation_url=legislation_url or None,
+                history=conversation_payload,
+            )
+    except Exception as exc:  # pylint: disable=broad-except
+        st.error(f"Agent failed to answer the question: {exc}")
+        return
+
+    history.append({
+        "question": question.strip(),
+        "answer": answer.text,
+        "citations": answer.citations,
+        "raw_response": answer.raw_response,
+        "informative_mode": SAFETY_STATEMENT in answer.text,
+        "conflicts": answer.conflicts,
+    })
+    st.session_state["agent_conversation"] = history
+    st.rerun()
 
 
 @st.cache_data(show_spinner=False)
@@ -2084,6 +2225,15 @@ sidebar_width_css = """
 """
 st.markdown(sidebar_width_css, unsafe_allow_html=True)
 st.title("Victoria Police policy analyser")
+sidebar = st.sidebar
+tool_mode = sidebar.radio(
+    "Select tool",
+    options=["Policy analyser", "VicPol GPT Agent"],
+    index=0,
+)
+if tool_mode == "VicPol GPT Agent":
+    render_policy_agent_mode(sidebar)
+    st.stop()
 
 if "similarity_matrix" not in st.session_state:
     st.session_state["similarity_matrix"] = None
@@ -2785,3 +2935,8 @@ with legislation_tab:
             st.caption(
                 "Review these policies to confirm consistency with the Act. Higher similarity scores point to closer alignment."
             )
+            if turn.get("conflicts"):
+                conflicts = ", ".join(sorted(turn["conflicts"]))
+                st.warning(
+                    f"Conflicting definitions detected for: {conflicts}. Seek supervisor guidance."
+                )
