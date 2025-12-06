@@ -2229,7 +2229,7 @@ sidebar = st.sidebar
 tool_mode = sidebar.radio(
     "Select tool",
     options=["Policy analyser", "VicPol GPT Agent"],
-    index=0,
+    index=1,
 )
 if tool_mode == "VicPol GPT Agent":
     render_policy_agent_mode(sidebar)
